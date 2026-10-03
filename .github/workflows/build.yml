@@ -18,7 +18,7 @@ jobs:
           -v "$(pwd)":/home/user/host \
           -w /home/user/host \
           --user root \
-          kivy/buildozer:stable \
+          kivy/buildozer:latest \
           buildozer android debug
     
     - name: Upload APK
