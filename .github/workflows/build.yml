@@ -12,7 +12,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Fix permissions
+    - name: Fix permissions for Docker user
       run: sudo chown -R 1000:1000 .
     
     - name: Build APK with Buildozer Docker
@@ -20,8 +20,9 @@ jobs:
         docker run --rm \
           -v "$(pwd)":/home/user/host \
           -w /home/user/host \
+          -u 1000:1000 \
           kivy/buildozer:latest \
-          bash -c 'export PATH=/home/user/.venv/bin:$PATH && yes | buildozer android debug'
+          buildozer android debug
     
     - name: Upload APK
       uses: actions/upload-artifact@v4
