@@ -8,6 +8,8 @@ version = 0.1
 requirements = python3,kivy
 orientation = portrait
 fullscreen = 0
+android.sdk_path = /home/runner/.buildozer/android/platform/android-sdk
+android.ndk_path = /home/runner/.buildozer/android/platform/android-ndk-r25b
 
 [buildozer]
 log_level = 2
