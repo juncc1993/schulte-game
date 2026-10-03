@@ -7,19 +7,64 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     
     steps:
     - uses: actions/checkout@v4
     
-    - name: Build APK with Buildozer Docker
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+    
+    - name: Install system dependencies
       run: |
-        docker run --rm \
-          -v "$(pwd)":/home/user/host \
-          -w /home/user/host \
-          -u root \
-          kivy/buildozer:latest \
-          bash -c 'export PATH=/home/user/.venv/bin:$PATH && echo "y" | buildozer android debug'
+        sudo apt-get update
+        sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev automake libltdl-dev
+    
+    - name: Install buildozer and patch root check
+      run: |
+        pip install buildozer cython
+        # 找到 buildozer 源码并删除 root 检查
+        BZ_INIT=$(python -c "import buildozer; print(buildozer.__file__)")
+        sed -i 's/def check_root(self):/def check_root(self): return/' "$BZ_INIT"
+        echo "Patched check_root in $BZ_INIT"
+        grep -A2 "def check_root" "$BZ_INIT"
+    
+    - name: Download Android SDK and NDK
+      run: |
+        mkdir -p ~/.buildozer/android/platform
+        cd ~/.buildozer/android/platform
+        
+        # SDK 命令行工具
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+        unzip -q commandlinetools-linux-9477386_latest.zip
+        mkdir -p android-sdk/cmdline-tools/latest
+        mv cmdline-tools/bin cmdline-tools/lib cmdline-tools/NOTICE.txt cmdline-tools/source.properties android-sdk/cmdline-tools/latest/ 2>/dev/null || true
+        rm -rf cmdline-tools
+        
+        # Buildozer 期望的目录结构
+        mkdir -p android-sdk/tools/bin
+        ln -sf ~/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin/sdkmanager android-sdk/tools/bin/sdkmanager
+        
+        # 安装 SDK 组件
+        export PATH="$HOME/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin:$PATH"
+        yes | sdkmanager --licenses || true
+        sdkmanager "platform-tools" "build-tools;33.0.0" "platforms;android-33"
+        
+        # License 文件
+        mkdir -p android-sdk/licenses
+        echo "24333f8a63b6825ea9c5514f83c2829b004d1fee" > android-sdk/licenses/android-sdk-license
+        echo "d56f5187479451eabf01fb78af6dfcb131a6481e" >> android-sdk/licenses/android-sdk-license
+        
+        # NDK
+        wget -q https://dl.google.com/android/repository/android-ndk-r25b-linux.zip
+        unzip -q android-ndk-r25b-linux.zip
+    
+    - name: Build APK
+      run: |
+        export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+        buildozer -v android debug
     
     - name: Upload APK
       uses: actions/upload-artifact@v4
