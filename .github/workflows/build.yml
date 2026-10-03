@@ -26,21 +26,28 @@ jobs:
       run: |
         pip install buildozer cython
     
-    - name: Pre-download Android SDK tools
+    - name: Pre-setup Android SDK with correct paths
       run: |
-        mkdir -p ~/.buildozer/android/platform/android-sdk
-        cd ~/.buildozer/android/platform/android-sdk
+        SDK_DIR="$HOME/.buildozer/android/platform/android-sdk"
+        mkdir -p "$SDK_DIR"
+        cd "$SDK_DIR"
+        # 下载新版命令行工具
         wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
         unzip -q commandlinetools-linux-9477386_latest.zip
         mkdir -p cmdline-tools/latest
-        mv cmdline-tools/bin cmdline-tools/latest/
-        mv cmdline-tools/lib cmdline-tools/latest/
-        export PATH="$PATH:$HOME/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin"
-        yes | sdkmanager --licenses || true
-        sdkmanager "platform-tools" "build-tools;33.0.0" "platforms;android-33"
-        mkdir -p ~/.buildozer/android/platform/android-sdk/licenses
-        echo "24333f8a63b6825ea9c5514f83c2829b004d1fee" > ~/.buildozer/android/platform/android-sdk/licenses/android-sdk-license
-        echo "d56f5187479451eabf01fb78af6dfcb131a6481e" >> ~/.buildozer/android/platform/android-sdk/licenses/android-sdk-license
+        mv cmdline-tools/bin cmdline-tools/latest/ 2>/dev/null || true
+        mv cmdline-tools/lib cmdline-tools/latest/ 2>/dev/null || true
+        # Buildozer 期望 sdkmanager 在 tools/bin/ 下，创建符号链接
+        mkdir -p tools/bin
+        ln -sf "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" tools/bin/sdkmanager
+        ln -sf "$SDK_DIR/cmdline-tools/latest/bin/avdmanager" tools/bin/avdmanager
+        # 接受许可证
+        yes | tools/bin/sdkmanager --licenses || true
+        tools/bin/sdkmanager "platform-tools" "build-tools;33.0.0" "platforms;android-33"
+        # 创建 license 文件
+        mkdir -p licenses
+        echo "24333f8a63b6825ea9c5514f83c2829b004d1fee" > licenses/android-sdk-license
+        echo "d56f5187479451eabf01fb78af6dfcb131a6481e" >> licenses/android-sdk-license
     
     - name: Cache buildozer dependencies
       uses: actions/cache@v4
@@ -54,8 +61,6 @@ jobs:
     
     - name: Build APK
       run: |
-        export ANDROID_HOME="$HOME/.buildozer/android/platform/android-sdk"
-        export PATH="$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools"
         buildozer -v android debug
     
     - name: Upload APK
