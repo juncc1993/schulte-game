@@ -25,11 +25,21 @@ jobs:
     - name: Install buildozer and patch root check
       run: |
         pip install buildozer cython
-        # 找到 buildozer 源码并删除 root 检查
-        BZ_INIT=$(python -c "import buildozer; print(buildozer.__file__)")
-        sed -i 's/def check_root(self):/def check_root(self): return/' "$BZ_INIT"
-        echo "Patched check_root in $BZ_INIT"
-        grep -A2 "def check_root" "$BZ_INIT"
+        # 用 Python 精确打补丁，跳过 root 检查
+        python3 << 'EOF'
+        import buildozer, os
+        fp = buildozer.__file__
+        with open(fp, 'r') as f:
+            c = f.read()
+        # 替换 check_root 方法体：函数定义不变，内部第一行加 return
+        old = "    def check_root(self):"
+        new = "    def check_root(self):\n        return"
+        c = c.replace(old, new, 1)
+        with open(fp, 'w') as f:
+            f.write(c)
+        print("Patched", fp)
+        EOF
+        grep -A3 "def check_root" $(python -c "import buildozer; print(buildozer.__file__)")
     
     - name: Download Android SDK and NDK
       run: |
