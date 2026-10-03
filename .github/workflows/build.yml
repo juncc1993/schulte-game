@@ -19,12 +19,7 @@ jobs:
           -w /home/user/host \
           -u root \
           kivy/buildozer:latest \
-          bash -c "
-            # 修改 Buildozer 源码，跳过 root 检测
-            sed -i 's/self.check_root()/pass/' /home/user/.venv/lib/python3.14/site-packages/buildozer/__init__.py
-            # 编译 APK
-            buildozer android debug
-          "
+          bash -c 'export PATH=/home/user/.venv/bin:$PATH && echo "y" | buildozer android debug'
     
     - name: Upload APK
       uses: actions/upload-artifact@v4
