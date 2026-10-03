@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     
     steps:
     - uses: actions/checkout@v4
@@ -20,28 +20,27 @@ jobs:
     - name: Install system dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses-dev cmake libffi-dev libssl-dev automake libltdl-dev
+        sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev automake libltdl-dev
     
     - name: Install buildozer
       run: |
         pip install buildozer cython
     
-    - name: Accept Android SDK licenses
+    - name: Pre-download Android SDK tools
       run: |
+        mkdir -p ~/.buildozer/android/platform/android-sdk
+        cd ~/.buildozer/android/platform/android-sdk
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+        unzip -q commandlinetools-linux-9477386_latest.zip
+        mkdir -p cmdline-tools/latest
+        mv cmdline-tools/bin cmdline-tools/latest/
+        mv cmdline-tools/lib cmdline-tools/latest/
+        export PATH="$PATH:$HOME/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin"
+        yes | sdkmanager --licenses || true
+        sdkmanager "platform-tools" "build-tools;33.0.0" "platforms;android-33"
         mkdir -p ~/.buildozer/android/platform/android-sdk/licenses
         echo "24333f8a63b6825ea9c5514f83c2829b004d1fee" > ~/.buildozer/android/platform/android-sdk/licenses/android-sdk-license
         echo "d56f5187479451eabf01fb78af6dfcb131a6481e" >> ~/.buildozer/android/platform/android-sdk/licenses/android-sdk-license
-        echo "84831b9409646a918e30573bab4c9c91346d8abd" >> ~/.buildozer/android/platform/android-sdk/licenses/android-sdk-license
-    
-    - name: Setup Android SDK tools
-      run: |
-        mkdir -p ~/.buildozer/android/platform/android-sdk/cmdline-tools
-        cd ~/.buildozer/android/platform/android-sdk/cmdline-tools
-        wget -q https://dl.google.com/android/repository/commandlinetools-linux-10406996_latest.zip
-        unzip -q commandlinetools-linux-10406996_latest.zip
-        mv cmdline-tools latest
-        export PATH="$PATH:$HOME/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin"
-        yes | sdkmanager --licenses || true
     
     - name: Cache buildozer dependencies
       uses: actions/cache@v4
@@ -55,7 +54,8 @@ jobs:
     
     - name: Build APK
       run: |
-        export PATH="$PATH:$HOME/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin"
+        export ANDROID_HOME="$HOME/.buildozer/android/platform/android-sdk"
+        export PATH="$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools"
         buildozer -v android debug
     
     - name: Upload APK
